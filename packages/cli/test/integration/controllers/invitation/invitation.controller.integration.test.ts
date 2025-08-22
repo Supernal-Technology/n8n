@@ -1,9 +1,20 @@
+import {
+	mockInstance,
+	randomEmail,
+	randomInvalidPassword,
+	randomName,
+	randomValidPassword,
+} from '@n8n/backend-test-utils';
+import type { User } from '@n8n/db';
+import {
+	GLOBAL_ADMIN_ROLE,
+	GLOBAL_MEMBER_ROLE,
+	ProjectRelationRepository,
+	UserRepository,
+} from '@n8n/db';
 import { Container } from '@n8n/di';
 import { Not } from '@n8n/typeorm';
 
-import type { User } from '@/databases/entities/user';
-import { ProjectRelationRepository } from '@/databases/repositories/project-relation.repository';
-import { UserRepository } from '@/databases/repositories/user.repository';
 import { EventService } from '@/events/event.service';
 import { ExternalHooks } from '@/external-hooks';
 import { PasswordUtility } from '@/services/password.utility';
@@ -14,14 +25,7 @@ import {
 	assertStoredUserProps,
 	assertUserInviteResult,
 } from './assertions';
-import { mockInstance } from '../../../shared/mocking';
 import { createMember, createOwner, createUserShell } from '../../shared/db/users';
-import {
-	randomEmail,
-	randomInvalidPassword,
-	randomName,
-	randomValidPassword,
-} from '../../shared/random';
 import * as utils from '../../shared/utils';
 import type { UserInvitationResult } from '../../shared/utils/users';
 
@@ -53,7 +57,7 @@ describe('InvitationController', () => {
 
 	describe('POST /invitations/:id/accept', () => {
 		test('should fill out a member shell', async () => {
-			const memberShell = await createUserShell('global:member');
+			const memberShell = await createUserShell(GLOBAL_MEMBER_ROLE);
 
 			const memberProps = {
 				inviterId: instanceOwner.id,
@@ -84,7 +88,7 @@ describe('InvitationController', () => {
 		});
 
 		test('should fill out an admin shell', async () => {
-			const adminShell = await createUserShell('global:admin');
+			const adminShell = await createUserShell(GLOBAL_ADMIN_ROLE);
 
 			const memberProps = {
 				inviterId: instanceOwner.id,
@@ -117,7 +121,7 @@ describe('InvitationController', () => {
 		test('should fail with invalid payloads', async () => {
 			const memberShell = await userRepository.save({
 				email: randomEmail(),
-				role: 'global:member',
+				role: { slug: 'global:member' },
 			});
 
 			const invalidPaylods = [
@@ -189,7 +193,7 @@ describe('InvitationController', () => {
 			expect(storedMember.password).not.toBe(memberProps.password);
 
 			const comparisonResult = await Container.get(PasswordUtility).compare(
-				member.password,
+				member.password!,
 				storedMember.password,
 			);
 
@@ -375,7 +379,7 @@ describe('InvitationController', () => {
 			mailer.invite.mockResolvedValue({ emailSent: true });
 
 			const member = await createMember();
-			const memberShell = await createUserShell('global:member');
+			const memberShell = await createUserShell(GLOBAL_MEMBER_ROLE);
 			const newUserEmail = randomEmail();
 
 			const existingUserEmails = [member.email];
